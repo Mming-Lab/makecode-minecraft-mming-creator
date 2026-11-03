@@ -1,6 +1,6 @@
 {
     "*": {
-        "namespace": "Easing",
+        "namespace": "CameraEase",
         "dataEncoding": "base64"
     },
     "in_back": {
