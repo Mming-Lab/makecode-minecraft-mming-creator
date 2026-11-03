@@ -1,0 +1,33 @@
+{
+    "name": "mming-creator",
+    "version": "0.1.0",
+    "description": "カメラの演出・立体図形・座標の回転ができる拡張機能",
+    "license": "PolyForm-Noncommercial-1.0.0",
+    "dependencies": {
+        "core": "*",
+        "builder": "*"
+    },
+    "files": [
+        "main.blocks",
+        "main.ts",
+        "README.md",
+        "src/camera.ts",
+        "src/Easing.jres",
+        "src/shapesExt.ts",
+        "src/coordinates.ts",
+        "src/rotatingPosition.ts",
+        "_locales/ja/mming-creator-strings.json",
+        "_locales/ja/mming-creator-jsdoc-strings.json"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "2.1.23",
+        "targetId": "minecraft"
+    },
+    "supportedTargets": [
+        "minecraft"
+    ],
+    "preferredEditor": "tsprj"
+}
