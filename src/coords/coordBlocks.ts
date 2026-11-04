@@ -1,6 +1,6 @@
 // 「座標」カテゴリのブロック
 
-//% block="Coordinates" weight=98 color=#4CAF50 icon="" advanced=true
+//% block="Coordinates" weight=97 color=#4CAF50 icon="" advanced=true
 //% groups='["Positions","Lists"]'
 namespace mmingCoords {
 
@@ -98,5 +98,27 @@ namespace mmingCoords {
             mmingCore.tick(1);
         }
         return result;
+    }
+
+    /**
+     * Turn a shape into a list of positions. Lines and curves keep their order.
+     * @param shape the shape
+     */
+    //% blockId=mming_coords_toPositions
+    //% block="positions of $shape"
+    //% group="Lists" weight=80
+    export function toPositions(shape: mmingCore.Shape): Position[] {
+        return mmingCore.positionsOf(shape);
+    }
+
+    /**
+     * Turn a list of positions into a shape.
+     * @param positions the list of positions
+     */
+    //% blockId=mming_coords_fromPositions
+    //% block="shape from $positions"
+    //% group="Lists" weight=70
+    export function fromPositions(positions: Position[]): mmingCore.Shape {
+        return mmingCore.shapeOfPoints(mmingCore.pointsOfPositions(positions));
     }
 }

@@ -4,13 +4,14 @@
 
 An advanced MakeCode extension for Minecraft Education: film scenes with a moving camera, and create 3D shapes as values you can combine and place. It is made for experienced users, or for learners working with a mentor.
 
-All three categories are inside **Advanced** in the toolbox.
+All four categories are inside **Advanced** in the toolbox.
 
 | Category | What it does |
 |---|---|
 | **Camera** | Filming mode, reset everything, place and move the camera (32 easing styles), orbit a position, move along a path, field of view, camera shake, fades, views, controls |
-| **Build** | Shapes as values, place blocks on them, and edit them (union, difference, intersection, layers, outside, inside, move) |
-| **Coordinates** | Positions in front of you, rotate a position, move and rotate position lists |
+| **Geometry** | Shapes as values: solids, surfaces, lines and curves |
+| **Place and Edit** | Place blocks on shapes, and edit shapes (union, difference, intersection, layers, outside, inside, move) |
+| **Coordinates** | Positions in front of you, rotate a position, move and rotate position lists, convert between shapes and lists |
 
 ## Installation
 

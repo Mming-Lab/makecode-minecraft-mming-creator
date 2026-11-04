@@ -16,6 +16,7 @@
         "src/build/cover.ts",
         "src/build/solids.ts",
         "src/build/placer.ts",
+        "src/build/shapeBlocks.ts",
         "src/build/buildBlocks.ts",
         "src/coords/coordBlocks.ts",
         "src/camera/cameraEnums.ts",
