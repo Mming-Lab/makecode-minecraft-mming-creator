@@ -134,6 +134,7 @@ namespace mmingCore {
         for (let r = 0; r < rows.data.length; r++) {
             const y = rows.y0 + Math.floor(r / rows.nz);
             const z = rows.z0 + r % rows.nz;
+            mmingCore.setStep("cover", r, rows.data.length);
             mmingCore.tick(1);
             while (free.data[r].length > 0) {
                 const sx = free.data[r][0];

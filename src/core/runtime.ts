@@ -11,13 +11,28 @@ namespace mmingCore {
     let ticks = 0;
     let showProgress = true;
     let lastPercent = -1;
+    let stepName = "";
+    let stepDone = 0;
+    let stepTotal = 0;
+
+    /** 自分にだけ見えるメッセージを出す */
+    function log(text: string): void {
+        player.tell(mobs.target(TargetSelectorKind.LocalPlayer), text);
+    }
+
+    /** 今の処理の名前と進み具合を覚える。次のログに出る */
+    export function setStep(name: string, done: number, total: number): void {
+        stepName = name;
+        stepDone = done;
+        stepTotal = total;
+    }
 
     /** 計算量を数え、一定回数ごとにメッセージを出して処理を続けられるようにする */
     export function tick(n: number): void {
         ticks += n;
         if (ticks >= YIELD_EVERY) {
             ticks = 0;
-            player.tell(mobs.target(TargetSelectorKind.LocalPlayer), "...");
+            log(`${stepName} ${stepDone}/${stepTotal}`);
         }
     }
 
@@ -36,20 +51,14 @@ namespace mmingCore {
         showProgress = on;
     }
 
-    /** 進捗を画面下のアクションバーに出す。文字は翻訳できないので記号だけにする */
+    /** 置いた割合をログに出す */
     export function progress(done: number, total: number): void {
         if (!showProgress) return;
         const percent = total > 0 ? Math.min(100, Math.floor(done * 100 / total)) : 100;
         const step = Math.floor(percent / 10) * 10;
         if (step == lastPercent) return;
         lastPercent = step;
-        const filled = step / 10;
-        let bar = "§a";
-        for (let i = 0; i < 10; i++) {
-            if (i == filled) bar += "§7";
-            bar += "|";
-        }
-        player.execute(`title @s actionbar ${bar} §f${step}%`);
+        log(`fill ${step}%`);
     }
 
     /** 進捗の表示を始める */

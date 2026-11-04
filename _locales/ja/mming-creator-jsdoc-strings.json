@@ -29,7 +29,7 @@
     "mmingBuild.count": "図形のセルの数です。",
     "mmingCoords.toPositions": "図形を座標リストにします。線と曲線は通る順に並びます。大きな図形はメモリを多く使います。",
     "mmingCoords.fromPositions": "座標リストを図形にします。",
-    "mmingBuild.showProgress": "進捗をホットバーの上に表示します。",
+    "mmingBuild.showProgress": "進捗をチャットに表示します。",
     "mmingCoords.inFront": "自分の前の位置です。高さは足もとと同じです。",
     "mmingCoords.rotate": "位置を回転します。角度が正のとき、軸の + の側から見て反時計回りです。結果はブロック単位に丸めます。",
     "mmingCoords.shift": "座標リストをずらします。",

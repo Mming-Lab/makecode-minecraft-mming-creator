@@ -78,6 +78,7 @@ namespace mmingCore {
             const y0 = clampY(this.y0), y1 = clampY(this.y1);
             const rows = new Rows(y0, y1, this.z0, this.z1);
             for (let y = y0; y <= y1; y++) {
+                mmingCore.setStep("rows", y - y0, rows.ny);
                 for (let z = this.z0; z <= this.z1; z++) {
                     const out: number[] = [];
                     this.span(y, z, out);

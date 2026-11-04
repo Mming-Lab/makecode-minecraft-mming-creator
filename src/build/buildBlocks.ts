@@ -149,7 +149,7 @@ namespace mmingBuild {
     }
 
     /**
-     * Show the building progress above the hotbar.
+     * Show the building progress in the chat.
      * @param on show the progress
      */
     //% blockId=mming_build_showProgress
