@@ -15,9 +15,10 @@ namespace mmingCore {
     let stepDone = 0;
     let stepTotal = 0;
 
-    /** 自分にだけ見えるメッセージを出す */
+    /** 自分にだけ見えるメッセージを、ゲーム時刻（tick）を付けて出す */
     function log(text: string): void {
-        player.tell(mobs.target(TargetSelectorKind.LocalPlayer), text);
+        const time = gameplay.timeQuery(TimeQuery.GameTime);
+        player.tell(mobs.target(TargetSelectorKind.LocalPlayer), `${text} t=${time}`);
     }
 
     /** 今の処理の名前と進み具合を覚える。次のログに出る */
