@@ -2,9 +2,11 @@
 namespace mmingCore {
     /**
      * この回数の計算ごとにコマンドを 1 回送る。
-     * MakeCode は計算だけを続けると止まってしまうので、ゲームとの往復をはさむ
+     * MakeCode は計算だけを続けると止まってしまうので、ゲームとの往復をはさむ。
+     * 実機ではコマンドなしのループが 10,000 回は通り、100,000 回で止まった。
+     * tick の 1 回は実際のループの数回ぶんなので、ループが 5,000 回ほどで送られる値にする
      */
-    const YIELD_EVERY = 20000;
+    const YIELD_EVERY = 2000;
 
     let ticks = 0;
     let showProgress = true;

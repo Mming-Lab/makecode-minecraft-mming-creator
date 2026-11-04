@@ -15,6 +15,8 @@ namespace mmingCore {
 
     /** box の外側の 1 層（axis=1 は y=c、axis=2 は z=c）がすべて図形の中か */
     function layerOk(rows: mmingCore.Rows, box: number[], axis: number, c: number): boolean {
+        // 途中で false を返すときも数えるように、調べる前に足す
+        mmingCore.tick(axis == 1 ? box[5] - box[4] + 1 : box[3] - box[2] + 1);
         if (axis == 1) {
             for (let z = box[4]; z <= box[5]; z++) {
                 if (!rowHas(rows.at(c, z), box[0], box[1])) return false;
@@ -24,7 +26,6 @@ namespace mmingCore {
                 if (!rowHas(rows.at(y, c), box[0], box[1])) return false;
             }
         }
-        mmingCore.tick(box[3] - box[2] + box[5] - box[4] + 2);
         return true;
     }
 
@@ -125,11 +126,15 @@ namespace mmingCore {
      */
     export function cover(rows: mmingCore.Rows, maxXZ: number): number[][] {
         const free = new mmingCore.Rows(rows.y0, rows.y0 + rows.ny - 1, rows.z0, rows.z0 + rows.nz - 1);
-        for (let i = 0; i < rows.data.length; i++) free.data[i] = rows.data[i];
+        for (let i = 0; i < rows.data.length; i++) {
+            free.data[i] = rows.data[i];
+            mmingCore.tick(1);
+        }
         const boxes: number[][] = [];
         for (let r = 0; r < rows.data.length; r++) {
             const y = rows.y0 + Math.floor(r / rows.nz);
             const z = rows.z0 + r % rows.nz;
+            mmingCore.tick(1);
             while (free.data[r].length > 0) {
                 const sx = free.data[r][0];
                 const a = grow(rows, sx, y, z, true, maxXZ);
