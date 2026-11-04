@@ -110,24 +110,12 @@ enum CameraView {
     ThirdPersonFront
 }
 
-/** ズーム */
-enum CameraZoom {
-    //% block="close"
-    Close,
-    //% block="normal"
-    Normal,
-    //% block="wide"
-    Wide
-}
-
-/** 画面のゆれの強さ */
-enum CameraShake {
-    //% block="weak"
-    Weak,
-    //% block="medium"
-    Medium,
-    //% block="strong"
-    Strong
+/** カメラのゆれの種類 */
+enum CameraShakeType {
+    //% block="positional"
+    Positional,
+    //% block="rotational"
+    Rotational
 }
 
 /** 止めたり戻したりできる操作 */

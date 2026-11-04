@@ -1,18 +1,21 @@
 // 拡張機能全体で使う部品（ブロックにはならない）
 namespace mmingCore {
-    /** この回数の計算ごとに処理を譲り、タイムアウトを防ぐ */
-    const YIELD_EVERY = 200000;
+    /**
+     * この回数の計算ごとにコマンドを 1 回送る。
+     * MakeCode は計算だけを続けると止まってしまうので、ゲームとの往復をはさむ
+     */
+    const YIELD_EVERY = 20000;
 
     let ticks = 0;
     let showProgress = true;
     let lastPercent = -1;
 
-    /** 計算量を数え、一定回数ごとに処理を譲る */
+    /** 計算量を数え、一定回数ごとにコマンドを送って処理を続けられるようにする */
     export function tick(n: number): void {
         ticks += n;
         if (ticks >= YIELD_EVERY) {
             ticks = 0;
-            loops.pause(1);
+            player.execute("testfor @s");
         }
     }
 

@@ -1,6 +1,6 @@
 // 「カメラ」カテゴリのブロック
 
-//% block="Camera" weight=100 color=#54bfff icon=""
+//% block="Camera" weight=100 color=#54bfff advanced=true icon=""
 //% groups='["Start and End","Place","Move","Effects","Controls"]'
 namespace mmingCamera {
     /** CameraEase と同じ順番のコマンド用の名前 */
@@ -14,11 +14,6 @@ namespace mmingCamera {
     /** CameraInput と同じ順番のコマンド用の名前 */
     const INPUT_IDS = ["movement", "camera", "jump", "sneak", "lateral_movement", "mount", "dismount",
         "move_forward", "move_backward", "move_left", "move_right"];
-    /** CameraShake と同じ順番の強さ（実機で調整する） */
-    const SHAKE_LEVELS = [0.2, 0.6, 1.5];
-    /** ズームの視野角 */
-    const FOV_CLOSE = 30;
-    const FOV_WIDE = 100;
     /** フェードの各時間の上限（秒） */
     const FADE_MAX = 10;
     /** 「まわりを回る」で 1 区間に進む角度 */
@@ -102,7 +97,7 @@ namespace mmingCamera {
     //% position.shadow=minecraftCreatePosition
     //% upDown.min=-90 upDown.max=90
     //% leftRight.min=-180 leftRight.max=180
-    //% group="Place" weight=80 advanced=true
+    //% group="Place" weight=80
     export function placeAtAngle(position: Position, upDown: number, leftRight: number): void {
         free(`pos ${position} rot ${num(upDown)} ${num(leftRight)}`);
     }
@@ -114,7 +109,7 @@ namespace mmingCamera {
     //% blockId=mming_camera_watch
     //% block="watch $target with camera"
     //% target.shadow=minecraftTarget
-    //% group="Place" weight=70 advanced=true
+    //% group="Place" weight=70
     export function watch(target: TargetSelector): void {
         target.addRule("c", "1");
         camera("set minecraft:free");
@@ -128,7 +123,7 @@ namespace mmingCamera {
     //% blockId=mming_camera_ride
     //% block="ride along with $target"
     //% target.shadow=minecraftTarget
-    //% group="Place" weight=60 advanced=true
+    //% group="Place" weight=60
     export function ride(target: TargetSelector): void {
         target.addRule("c", "1");
         camera("set minecraft:follow_orbit");
@@ -140,7 +135,7 @@ namespace mmingCamera {
      */
     //% blockId=mming_camera_stopFollowing
     //% block="stop following"
-    //% group="Place" weight=50 advanced=true
+    //% group="Place" weight=50
     export function stopFollowing(): void {
         camera("remove_target");
         camera("detach_from_entity");
@@ -206,6 +201,35 @@ namespace mmingCamera {
     }
 
     /**
+     * Fly the camera along a list of positions at a steady speed. Use lines, helixes and Bézier curves, which keep their order.
+     * @param path the positions to go through
+     * @param look what to look at
+     * @param seconds how long it takes
+     * @param every use one position out of this many
+     */
+    //% blockId=mming_camera_moveAlong
+    //% block="move camera along $path|looking at $look|in $seconds seconds||every $every positions"
+    //% look.shadow=mming_coords_inFront
+    //% seconds.min=1 seconds.defl=8
+    //% every.min=1 every.defl=4
+    //% expandableArgumentMode="toggle"
+    //% group="Move" weight=85
+    export function moveAlong(path: Position[], look: Position, seconds: number, every: number = 4): void {
+        const step = Math.max(1, Math.floor(every));
+        const points: Position[] = [];
+        for (let i = 0; i < path.length; i += step) points.push(path[i]);
+        if (path.length > 0 && (path.length - 1) % step != 0) points.push(path[path.length - 1]);
+        if (points.length == 0) return;
+        const target = look.toWorld();
+        free(`pos ${points[0]} facing ${target}`);
+        const stepSeconds = points.length > 1 ? seconds / (points.length - 1) : 0;
+        for (let i = 1; i < points.length; i++) {
+            free(`ease ${num(stepSeconds)} linear pos ${points[i]} facing ${target}`);
+            loops.pause(stepSeconds * 1000);
+        }
+    }
+
+    /**
      * Turn the camera without moving it.
      * @param upDown the angle up and down (-90 up to 90 down)
      * @param leftRight the angle left and right
@@ -229,35 +253,66 @@ namespace mmingCamera {
     }
 
     /**
-     * Zoom the camera in or out.
-     * @param level how far to zoom
+     * Change the field of view of the camera. Small values zoom in.
+     * @param fov the field of view in degrees (30 to 110)
      * @param seconds how long it takes
+     * @param style how it changes
      */
-    //% blockId=mming_camera_zoom
-    //% block="zoom $level||in $seconds seconds"
-    //% level.defl=CameraZoom.Close
+    //% blockId=mming_camera_setFov
+    //% block="field of view $fov degrees||in $seconds seconds style $style"
+    //% fov.min=30 fov.max=110 fov.defl=30
     //% seconds.min=0 seconds.defl=1
+    //% style.fieldEditor="gridpicker"
+    //% style.fieldOptions.width=90
+    //% style.fieldOptions.columns=3
+    //% style.fieldOptions.maxRows="6"
     //% expandableArgumentMode="toggle"
     //% group="Effects" weight=100
-    export function zoom(level: CameraZoom, seconds: number = 1): void {
-        const ease = `${num(seconds)} linear`;
-        if (level == CameraZoom.Normal) camera(`fov_clear ${ease}`);
-        else camera(`fov_set ${level == CameraZoom.Close ? FOV_CLOSE : FOV_WIDE} ${ease}`);
+    export function setFov(fov: number, seconds: number = 1, style: CameraEase = CameraEase.linear): void {
+        const value = Math.max(30, Math.min(110, fov));
+        camera(`fov_set ${num(value)} ${num(seconds)} ${EASE_IDS[style]}`);
         loops.pause(seconds * 1000);
     }
 
     /**
-     * Shake the screen. It cannot be seen if the player turned off camera shake in the settings.
-     * @param level how strong
+     * Put the field of view back to the player's setting.
+     * @param seconds how long it takes
+     */
+    //% blockId=mming_camera_clearFov
+    //% block="reset field of view||in $seconds seconds"
+    //% seconds.min=0 seconds.defl=1
+    //% expandableArgumentMode="toggle"
+    //% group="Effects" weight=95
+    export function clearFov(seconds: number = 1): void {
+        camera(`fov_clear ${num(seconds)} linear`);
+        loops.pause(seconds * 1000);
+    }
+
+    /**
+     * Shake the camera. It cannot be seen if the player turned off camera shake in the settings.
+     * @param intensity the strength (0 to 4)
      * @param seconds how long
+     * @param type move or turn the camera
      */
     //% blockId=mming_camera_shake
-    //% block="shake screen $level for $seconds seconds"
-    //% level.defl=CameraShake.Medium
+    //% block="shake camera intensity $intensity for $seconds seconds||type $type"
+    //% intensity.min=0 intensity.max=4 intensity.defl=0.6
     //% seconds.min=0 seconds.defl=1
+    //% expandableArgumentMode="toggle"
     //% group="Effects" weight=90
-    export function shake(level: CameraShake, seconds: number): void {
-        player.execute(`camerashake add @s ${SHAKE_LEVELS[level]} ${num(seconds)} positional`);
+    export function shake(intensity: number, seconds: number, type: CameraShakeType = CameraShakeType.Positional): void {
+        const name = type == CameraShakeType.Rotational ? "rotational" : "positional";
+        player.execute(`camerashake add @s ${num(intensity)} ${num(seconds)} ${name}`);
+    }
+
+    /**
+     * Stop shaking the camera.
+     */
+    //% blockId=mming_camera_stopShake
+    //% block="stop shaking camera"
+    //% group="Effects" weight=85
+    export function stopShake(): void {
+        player.execute("camerashake stop @s");
     }
 
     /**
@@ -296,7 +351,7 @@ namespace mmingCamera {
     //% red.min=0 red.max=255
     //% green.min=0 green.max=255
     //% blue.min=0 blue.max=255
-    //% group="Effects" weight=70 advanced=true
+    //% group="Effects" weight=70
     export function rgb(red: number, green: number, blue: number): number {
         return ((red & 0xFF) << 16) | ((green & 0xFF) << 8) | (blue & 0xFF);
     }
@@ -310,7 +365,7 @@ namespace mmingCamera {
     //% block="$input $on"
     //% input.defl=CameraInput.Movement
     //% on.shadow=toggleOnOff on.defl=false
-    //% group="Controls" weight=100 advanced=true
+    //% group="Controls" weight=100
     export function setInput(input: CameraInput, on: boolean): void {
         setInputState(INPUT_IDS[input], on);
     }
@@ -322,7 +377,7 @@ namespace mmingCamera {
     //% blockId=mming_camera_showHud
     //% block="show HUD $on"
     //% on.shadow=toggleOnOff on.defl=false
-    //% group="Controls" weight=90 advanced=true
+    //% group="Controls" weight=90
     export function showHud(on: boolean): void {
         player.execute(`hud @s ${on ? "reset" : "hide"} all`);
     }

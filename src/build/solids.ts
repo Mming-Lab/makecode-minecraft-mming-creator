@@ -20,16 +20,16 @@ namespace mmingCore {
     }
 
     /** 底の中心から上へ、たて・よこ・高さの直方体 */
-    export function boxAt(center: Position, width: number, depth: number, height: number): mmingCore.Shape {
+    export function cuboid(center: Position, width: number, depth: number, height: number): mmingCore.Shape {
         const w = Math.round(width), d = Math.round(depth), h = Math.round(height);
-        if (!(w >= 1 && d >= 1 && h >= 1)) return null;
+        if (!(w >= 1 && d >= 1 && h >= 1)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
-        const x0 = c[0] - Math.idiv(w, 2), z0 = c[2] - Math.idiv(d, 2);
+        const x0 = c[0] - Math.floor(w / 2), z0 = c[2] - Math.floor(d / 2);
         return box(x0, c[1], z0, x0 + w - 1, c[1] + h - 1, z0 + d - 1);
     }
 
     /** 2 つの角で決まる直方体 */
-    export function boxBetween(corner1: Position, corner2: Position): mmingCore.Shape {
+    export function cuboidBetween(corner1: Position, corner2: Position): mmingCore.Shape {
         const a = mmingCore.blockXYZ(corner1), b = mmingCore.blockXYZ(corner2);
         return box(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]),
             Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.max(a[2], b[2]));
@@ -37,7 +37,7 @@ namespace mmingCore {
 
     /** 球 */
     export function sphere(center: Position, radius: number): mmingCore.Shape {
-        if (!(radius > 0)) return null;
+        if (!(radius > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const r = Math.ceil(radius), rr = radius * radius;
@@ -47,9 +47,9 @@ namespace mmingCore {
         });
     }
 
-    /** ドーム（球の上半分。中心の高さが床になる） */
-    export function dome(center: Position, radius: number, openBottom: boolean): mmingCore.Shape {
-        if (!(radius > 0)) return null;
+    /** 半球（球の上半分。中心の高さが底面になる） */
+    export function hemisphere(center: Position, radius: number, openBottom: boolean): mmingCore.Shape {
+        if (!(radius > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const r = Math.ceil(radius), rr = radius * radius;
@@ -62,8 +62,8 @@ namespace mmingCore {
     }
 
     /** たまご形（楕円体） */
-    export function egg(center: Position, radiusX: number, radiusY: number, radiusZ: number): mmingCore.Shape {
-        if (!(radiusX > 0 && radiusY > 0 && radiusZ > 0)) return null;
+    export function ellipsoid(center: Position, radiusX: number, radiusY: number, radiusZ: number): mmingCore.Shape {
+        if (!(radiusX > 0 && radiusY > 0 && radiusZ > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const rx = Math.ceil(radiusX), ry = Math.ceil(radiusY), rz = Math.ceil(radiusZ);
@@ -77,7 +77,7 @@ namespace mmingCore {
     /** 高さごとに半径が変わる丸い立体の共通部品 */
     function round(center: Position, height: number, maxRadius: number, radiusAt: (k: number) => number): mmingCore.Shape {
         const h = Math.round(height);
-        if (!(h >= 1 && maxRadius > 0)) return null;
+        if (!(h >= 1 && maxRadius > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const r = Math.ceil(maxRadius);
@@ -103,7 +103,7 @@ namespace mmingCore {
     }
 
     /** おわん形（下が 1 ブロックで、いちばん上が指定した半径。上は開いている） */
-    export function bowl(center: Position, radius: number, height: number): mmingCore.Shape {
+    export function paraboloid(center: Position, radius: number, height: number): mmingCore.Shape {
         const h = Math.round(height);
         const s = round(center, height, radius, (k) => h <= 1 ? radius : radius * Math.sqrt(k / (h - 1)));
         if (s) s.openTop = true;
@@ -111,7 +111,7 @@ namespace mmingCore {
     }
 
     /** くびれタワー（上下のはしが endRadius、まん中が waistRadius） */
-    export function waist(center: Position, endRadius: number, waistRadius: number, height: number): mmingCore.Shape {
+    export function hyperboloid(center: Position, endRadius: number, waistRadius: number, height: number): mmingCore.Shape {
         const h = Math.round(height);
         const a = Math.max(0, waistRadius);
         const m = (h - 1) / 2;
@@ -127,7 +127,7 @@ namespace mmingCore {
      */
     function polygon(center: Position, sides: number, radius: number, height: number, scaleAt: (k: number) => number): mmingCore.Shape {
         const n = Math.round(sides), h = Math.round(height);
-        if (!(n >= 3 && h >= 1 && radius > 0)) return null;
+        if (!(n >= 3 && h >= 1 && radius > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const r = Math.ceil(radius);
@@ -175,8 +175,8 @@ namespace mmingCore {
     }
 
     /** ドーナツ（中心を通る水平な輪） */
-    export function donut(center: Position, ringRadius: number, thickness: number): mmingCore.Shape {
-        if (!(ringRadius > 0 && thickness > 0)) return null;
+    export function torus(center: Position, ringRadius: number, thickness: number): mmingCore.Shape {
+        if (!(ringRadius > 0 && thickness > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const outer = Math.ceil(ringRadius + thickness), t = Math.ceil(thickness);
@@ -203,7 +203,7 @@ namespace mmingCore {
 
     /** 円（平面。orientation の軸に垂直な面にかく） */
     export function circle(center: Position, radius: number, orientation: Axis): mmingCore.Shape {
-        if (!(radius > 0)) return null;
+        if (!(radius > 0)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const cx = c[0], cy = c[1], cz = c[2];
         const r = Math.ceil(radius), rr = radius * radius;
@@ -231,8 +231,8 @@ namespace mmingCore {
     }
 
     /** チューブ（2 点を結ぶ太い線。はしは丸くなる） */
-    export function tube(p0: Position, p1: Position, radius: number): mmingCore.Shape {
-        if (!(radius > 0)) return null;
+    export function capsule(p0: Position, p1: Position, radius: number): mmingCore.Shape {
+        if (!(radius > 0)) return mmingCore.emptyShape();
         const a = mmingCore.blockXYZ(p0), b = mmingCore.blockXYZ(p1);
         const ax = a[0], ay = a[1], az = a[2];
         const vx = b[0] - ax, vy = b[1] - ay, vz = b[2] - az;
@@ -262,18 +262,18 @@ namespace mmingCore {
     // ==============================
 
     /** 線 */
-    export function line(p0: Position, p1: Position): mmingCore.Points {
+    export function line(p0: Position, p1: Position): mmingCore.Shape {
         const a = mmingCore.blockXYZ(p0), b = mmingCore.blockXYZ(p1);
         const points = new mmingCore.Points();
         mmingCore.addLine(points, a[0], a[1], a[2], b[0], b[1], b[2]);
-        return points;
+        return mmingCore.shapeOfPoints(points);
     }
 
     /** らせん（底の中心から上へ height 段。clockwise は上から見て時計回り） */
-    export function spiral(center: Position, radius: number, height: number, turns: number, clockwise: boolean): mmingCore.Points {
+    export function helix(center: Position, radius: number, height: number, turns: number, clockwise: boolean): mmingCore.Shape {
         const points = new mmingCore.Points();
         const h = Math.round(height);
-        if (!(radius > 0 && h >= 1)) return points;
+        if (!(radius > 0 && h >= 1)) return mmingCore.emptyShape();
         const c = mmingCore.blockXYZ(center);
         const direction = clockwise ? 1 : -1;
         const arc = 2 * Math.PI * radius * Math.abs(turns);
@@ -286,11 +286,11 @@ namespace mmingCore {
                 c[1] + Math.round((h - 1) * t),
                 c[2] + Math.round(radius * Math.sin(angle)));
         }
-        return points;
+        return mmingCore.shapeOfPoints(points);
     }
 
     /** なめらかな曲線（ベジェ曲線。引っぱる点はいくつでもよい） */
-    export function curve(from: Position, to: Position, pullPoints: Position[]): mmingCore.Points {
+    export function bezier(from: Position, to: Position, pullPoints: Position[]): mmingCore.Shape {
         const all: Position[] = [from];
         for (let i = 0; i < pullPoints.length; i++) all.push(pullPoints[i]);
         all.push(to);
@@ -323,6 +323,6 @@ namespace mmingCore {
             }
             points.lineTo(Math.round(x), Math.round(y), Math.round(z));
         }
-        return points;
+        return mmingCore.shapeOfPoints(points);
     }
 }

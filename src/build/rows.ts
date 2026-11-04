@@ -1,38 +1,13 @@
-// 図形の表し方と、セルの集まりを直方体に分ける処理（ブロックにはならない）
+// 図形の表し方と、図形どうしの計算（ブロックにはならない）
 // 図形は「行」の集まりで表す。行は y と z を決めたときの x の区間 [a0, b0, a1, b1, ...]（昇順）
 namespace mmingCore {
-    /** /fill 1 回で置ける最大ブロック数 */
-    export const FILL_LIMIT = 32768;
     const WORLD_MIN_Y = -64;
     const WORLD_MAX_Y = 319;
-    /** 行の並べ方を 2 通り試す上限の行数（これより多いと計算が長くなる） */
-    const TRY_BOTH_ORDERS_ROWS = 10000;
-
-    /** 図形 = 外接直方体（ワールド座標の整数）＋ 行ごとの x の区間 */
-    export class Shape {
-        x0: number; y0: number; z0: number;
-        x1: number; y1: number; z1: number;
-        /** y と z を決めたときの x の区間を out に足す */
-        span: (y: number, z: number, out: number[]) => void;
-        /** 殻の判定で見ない軸（平面の図形用）。0=X 1=Y 2=Z、-1 はすべて見る */
-        flatAxis: number;
-        /** true なら上にふたを付けない */
-        openTop: boolean;
-        /** true なら下にふたを付けない */
-        openBottom: boolean;
-
-        constructor(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number,
-            span: (y: number, z: number, out: number[]) => void) {
-            this.x0 = x0; this.y0 = y0; this.z0 = z0;
-            this.x1 = x1; this.y1 = y1; this.z1 = z1;
-            this.span = span;
-            this.flatAxis = -1;
-            this.openTop = false;
-            this.openBottom = false;
-        }
-    }
-
     const NO_ROW: number[] = [];
+
+    function clampY(y: number): number {
+        return Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, y));
+    }
 
     /** y・z の範囲にある行の集まり */
     export class Rows {
@@ -44,6 +19,7 @@ namespace mmingCore {
             this.ny = y1 - y0 + 1; this.nz = z1 - z0 + 1;
             this.data = [];
             for (let i = 0; i < this.ny * this.nz; i++) this.data.push(NO_ROW);
+            mmingCore.tick(this.ny * this.nz);
         }
 
         at(y: number, z: number): number[] {
@@ -58,27 +34,82 @@ namespace mmingCore {
             for (const row of this.data) {
                 for (let i = 0; i < row.length; i += 2) n += row[i + 1] - row[i] + 1;
             }
+            mmingCore.tick(this.data.length);
             return n;
         }
     }
 
-    function clampY(y: number): number {
-        return Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, y));
+    /**
+     * 図形。ブロックの値として受け渡しする。
+     * 行は最初に必要になったときに作る
+     */
+    export class Shape {
+        x0: number; y0: number; z0: number;
+        x1: number; y1: number; z1: number;
+        /** y と z を決めたときの x の区間を out に足す */
+        span: (y: number, z: number, out: number[]) => void;
+        /** 外側の判定で見ない軸（平面の図形用）。0=X 1=Y 2=Z、-1 はすべて見る */
+        flatAxis: number;
+        /** true なら上にふたを付けない */
+        openTop: boolean;
+        /** true なら下にふたを付けない */
+        openBottom: boolean;
+        /** 線や曲線の、通る順の点 */
+        path: Points;
+        private cached: Rows;
+
+        constructor(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number,
+            span: (y: number, z: number, out: number[]) => void) {
+            this.x0 = x0; this.y0 = y0; this.z0 = z0;
+            this.x1 = x1; this.y1 = y1; this.z1 = z1;
+            this.span = span;
+            this.flatAxis = -1;
+            this.openTop = false;
+            this.openBottom = false;
+            this.path = null;
+            this.cached = null;
+        }
+
+        /** 行の集まり */
+        rows(): Rows {
+            if (this.cached) return this.cached;
+            const y0 = clampY(this.y0), y1 = clampY(this.y1);
+            const rows = new Rows(y0, y1, this.z0, this.z1);
+            for (let y = y0; y <= y1; y++) {
+                for (let z = this.z0; z <= this.z1; z++) {
+                    const out: number[] = [];
+                    this.span(y, z, out);
+                    rows.data[(y - y0) * rows.nz + (z - this.z0)] = out;
+                }
+                mmingCore.tick(rows.nz);
+            }
+            this.cached = rows;
+            return rows;
+        }
+
+        setRows(rows: Rows): void {
+            this.cached = rows;
+        }
     }
 
-    /** 図形を行の集まりにする */
-    export function rowsOf(s: Shape): Rows {
-        const y0 = clampY(s.y0), y1 = clampY(s.y1);
-        const rows = new Rows(y0, y1, s.z0, s.z1);
-        for (let y = y0; y <= y1; y++) {
-            for (let z = s.z0; z <= s.z1; z++) {
-                const out: number[] = [];
-                s.span(y, z, out);
-                rows.data[(y - y0) * rows.nz + (z - s.z0)] = out;
-            }
-            mmingCore.tick(rows.nz);
+    /** 行の集まりから図形を作る */
+    export function shapeOfRows(rows: Rows): Shape {
+        let x0 = 0, x1 = -1, found = false;
+        for (const row of rows.data) {
+            if (row.length == 0) continue;
+            const a = row[0], b = row[row.length - 1];
+            if (!found) { x0 = a; x1 = b; found = true; }
+            else { x0 = Math.min(x0, a); x1 = Math.max(x1, b); }
         }
-        return rows;
+        mmingCore.tick(rows.data.length);
+        const s = new Shape(x0, rows.y0, rows.z0, x1, rows.y0 + rows.ny - 1, rows.z0 + rows.nz - 1, null);
+        s.setRows(rows);
+        return s;
+    }
+
+    /** 何もない図形（大きさが 0 以下のとき） */
+    export function emptyShape(): Shape {
+        return shapeOfRows(new Rows(0, -1, 0, -1));
     }
 
     /** 行に区間 [a, b] を足す */
@@ -99,8 +130,26 @@ namespace mmingCore {
         return out;
     }
 
+    /** 2 つの行を合わせる */
+    function unite(a: number[], b: number[]): number[] {
+        const out: number[] = [];
+        let i = 0, j = 0;
+        while (i < a.length || j < b.length) {
+            let lo: number, hi: number;
+            if (j >= b.length || (i < a.length && a[i] <= b[j])) {
+                lo = a[i]; hi = a[i + 1]; i += 2;
+            } else {
+                lo = b[j]; hi = b[j + 1]; j += 2;
+            }
+            const n = out.length;
+            if (n > 0 && lo <= out[n - 1] + 1) out[n - 1] = Math.max(out[n - 1], hi);
+            else pushSpan(out, lo, hi);
+        }
+        return out;
+    }
+
     /** 行 a から行 b を引く */
-    function subtract(a: number[], b: number[]): number[] {
+    export function subtract(a: number[], b: number[]): number[] {
         const out: number[] = [];
         let j = 0;
         for (let i = 0; i < a.length; i += 2) {
@@ -128,7 +177,8 @@ namespace mmingCore {
     }
 
     /** 内側（6 方向の隣がすべて図形の中のセル）の行を作る */
-    export function innerRows(s: Shape, solid: Rows): Rows {
+    export function innerRows(s: Shape): Rows {
+        const solid = s.rows();
         const yEnd = solid.y0 + solid.ny - 1;
         const inner = new Rows(solid.y0, yEnd, solid.z0, solid.z0 + solid.nz - 1);
         for (let y = solid.y0; y <= yEnd; y++) {
@@ -151,201 +201,131 @@ namespace mmingCore {
         return inner;
     }
 
-    /** 外側（殻）の行を作る: 中身 − 内側 */
-    export function shellRows(solid: Rows, inner: Rows): Rows {
-        const shell = new Rows(solid.y0, solid.y0 + solid.ny - 1, solid.z0, solid.z0 + solid.nz - 1);
-        for (let i = 0; i < solid.data.length; i++) {
-            shell.data[i] = subtract(solid.data[i], inner.data[i]);
+    /** 2 つの図形を行ごとに計算する。operation は 0=和 1=差 2=積 */
+    function combine(a: Shape, b: Shape, operation: number): Shape {
+        const ra = a.rows(), rb = b.rows();
+        const y0 = Math.min(ra.y0, rb.y0), y1 = Math.max(ra.y0 + ra.ny, rb.y0 + rb.ny) - 1;
+        const z0 = Math.min(ra.z0, rb.z0), z1 = Math.max(ra.z0 + ra.nz, rb.z0 + rb.nz) - 1;
+        const rows = new Rows(y0, y1, z0, z1);
+        for (let y = y0; y <= y1; y++) {
+            for (let z = z0; z <= z1; z++) {
+                const p = ra.at(y, z), q = rb.at(y, z);
+                let row: number[];
+                if (operation == 0) row = unite(p, q);
+                else if (operation == 1) row = subtract(p, q);
+                else row = intersect(p, q);
+                rows.data[(y - y0) * rows.nz + (z - z0)] = row;
+            }
+            mmingCore.tick(rows.nz);
         }
-        mmingCore.tick(solid.data.length);
-        return shell;
+        return shapeOfRows(rows);
     }
 
-    // ==============================
-    // 直方体に分ける
-    // ==============================
+    export function unionShape(a: Shape, b: Shape): Shape { return combine(a, b, 0); }
+    export function differenceShape(a: Shape, b: Shape): Shape { return combine(a, b, 1); }
+    export function intersectionShape(a: Shape, b: Shape): Shape { return combine(a, b, 2); }
 
-    /** 行が区間 [a, b] をまるごと含むか */
-    function rowHas(row: number[], a: number, b: number): boolean {
-        for (let i = 0; i < row.length; i += 2) {
-            if (row[i] <= a && b <= row[i + 1]) return true;
+    /** 図形をずらす */
+    export function moveShape(s: Shape, dx: number, dy: number, dz: number): Shape {
+        const src = s.rows();
+        const rows = new Rows(src.y0 + dy, src.y0 + src.ny - 1 + dy, src.z0 + dz, src.z0 + src.nz - 1 + dz);
+        for (let i = 0; i < src.data.length; i++) {
+            const row = src.data[i];
+            if (row.length == 0) continue;
+            const moved: number[] = [];
+            for (let k = 0; k < row.length; k++) moved.push(row[k] + dx);
+            rows.data[i] = moved;
         }
-        return false;
+        mmingCore.tick(src.data.length);
+        const result = shapeOfRows(rows);
+        result.flatAxis = s.flatAxis;
+        result.openTop = s.openTop;
+        result.openBottom = s.openBottom;
+        if (s.path) {
+            const path = new Points();
+            for (let k = 0; k < s.path.count(); k++) path.add(s.path.xs[k] + dx, s.path.ys[k] + dy, s.path.zs[k] + dz);
+            result.path = path;
+        }
+        return result;
     }
 
-    /** box の外側の 1 層（axis=1 は y=c、axis=2 は z=c）がすべて図形の中か */
-    function layerOk(rows: Rows, box: number[], axis: number, c: number): boolean {
-        if (axis == 1) {
-            for (let z = box[4]; z <= box[5]; z++) {
-                if (!rowHas(rows.at(c, z), box[0], box[1])) return false;
+    /** 図形の、軸方向で from〜to 段目（端から 0 始まり）の部分だけを取り出す */
+    export function sliceShape(s: Shape, axis: Axis, from: number, to: number): Shape {
+        const src = s.rows();
+        const rows = new Rows(src.y0, src.y0 + src.ny - 1, src.z0, src.z0 + src.nz - 1);
+        const lo = Math.min(from, to), hi = Math.max(from, to);
+        const keep = [s.x0 + lo, s.x0 + hi];
+        for (let y = 0; y < src.ny; y++) {
+            for (let z = 0; z < src.nz; z++) {
+                const row = src.data[y * src.nz + z];
+                if (row.length == 0) continue;
+                const k = axis == Axis.Y ? y : z;
+                let out = row;
+                if (axis == Axis.X) out = intersect(row, keep);
+                else if (k < lo || k > hi) continue;
+                rows.data[y * src.nz + z] = out;
             }
-        } else {
-            for (let y = box[2]; y <= box[3]; y++) {
-                if (!rowHas(rows.at(y, c), box[0], box[1])) return false;
-            }
+            mmingCore.tick(src.nz);
         }
-        mmingCore.tick(box[3] - box[2] + box[5] - box[4] + 2);
-        return true;
-    }
-
-    /** box を axis 方向（1=y、2=z）の両側へ交互に広げる */
-    function extend(rows: Rows, box: number[], axis: number, maxLen: number): void {
-        let low = true, high = true;
-        while (low || high) {
-            const width = box[1] - box[0] + 1;
-            const height = box[3] - box[2] + 1;
-            const depth = box[5] - box[4] + 1;
-            const face = axis == 1 ? width * depth : width * height;
-            const len = axis == 1 ? height : depth;
-            if (len >= maxLen || face * (len + 1) > FILL_LIMIT) return;
-            if (low) {
-                if (layerOk(rows, box, axis, box[axis * 2] - 1)) box[axis * 2]--; else low = false;
-            }
-            const len2 = axis == 1 ? box[3] - box[2] + 1 : box[5] - box[4] + 1;
-            if (len2 >= maxLen || face * (len2 + 1) > FILL_LIMIT) return;
-            if (high) {
-                if (layerOk(rows, box, axis, box[axis * 2 + 1] + 1)) box[axis * 2 + 1]++; else high = false;
-            }
-        }
-    }
-
-    /** x を起点の両側へ、box のすべての行に含まれる範囲まで広げる */
-    function extendX(rows: Rows, box: number[], sx: number, maxLen: number): void {
-        let lo = -1000000000, hi = 1000000000;
-        for (let y = box[2]; y <= box[3]; y++) {
-            for (let z = box[4]; z <= box[5]; z++) {
-                const row = rows.at(y, z);
-                for (let i = 0; i < row.length; i += 2) {
-                    if (row[i] <= sx && sx <= row[i + 1]) {
-                        lo = Math.max(lo, row[i]);
-                        hi = Math.min(hi, row[i + 1]);
-                        break;
-                    }
-                }
-            }
-            mmingCore.tick(box[5] - box[4] + 1);
-        }
-        const area = (box[3] - box[2] + 1) * (box[5] - box[4] + 1);
-        const limit = Math.min(maxLen, Math.floor(FILL_LIMIT / area));
-        if (hi - lo + 1 > limit) {
-            if (sx - lo + 1 > limit) lo = sx;
-            hi = Math.min(hi, lo + limit - 1);
-        }
-        box[0] = lo;
-        box[1] = hi;
-    }
-
-    /** 起点のセルから直方体を作る。order=0 は x→y→z、1 は z→y→x の順に広げる */
-    function grow(rows: Rows, sx: number, y: number, z: number, order: number, maxXZ: number): number[] {
-        const box = [sx, sx, y, y, z, z];
-        if (order == 0) {
-            extendX(rows, box, sx, maxXZ);
-            extend(rows, box, 1, 100000);
-            extend(rows, box, 2, maxXZ);
-        } else {
-            extend(rows, box, 2, maxXZ);
-            extend(rows, box, 1, 100000);
-            extendX(rows, box, sx, maxXZ);
-        }
-        return box;
-    }
-
-    /** box の中で、まだ置いていないセルの数 */
-    function countFree(free: Rows, box: number[]): number {
-        let n = 0;
-        for (let y = box[2]; y <= box[3]; y++) {
-            for (let z = box[4]; z <= box[5]; z++) {
-                const row = free.at(y, z);
-                for (let i = 0; i < row.length; i += 2) {
-                    const lo = Math.max(row[i], box[0]), hi = Math.min(row[i + 1], box[1]);
-                    if (lo <= hi) n += hi - lo + 1;
-                }
-            }
-            mmingCore.tick(box[5] - box[4] + 1);
-        }
-        return n;
-    }
-
-    function cutBox(free: Rows, box: number[]): void {
-        const cut = [box[0], box[1]];
-        for (let y = box[2]; y <= box[3]; y++) {
-            for (let z = box[4]; z <= box[5]; z++) {
-                const i = (y - free.y0) * free.nz + (z - free.z0);
-                if (free.data[i].length > 0) free.data[i] = subtract(free.data[i], cut);
-            }
-            mmingCore.tick(box[5] - box[4] + 1);
-        }
-    }
-
-    function coverInOrder(rows: Rows, order: number[], maxXZ: number): number[][] {
-        const free = new Rows(rows.y0, rows.y0 + rows.ny - 1, rows.z0, rows.z0 + rows.nz - 1);
-        for (let i = 0; i < rows.data.length; i++) free.data[i] = rows.data[i];
-        const boxes: number[][] = [];
-        for (const r of order) {
-            const y = rows.y0 + Math.idiv(r, rows.nz);
-            const z = rows.z0 + r % rows.nz;
-            while (free.data[r].length > 0) {
-                const sx = free.data[r][0];
-                // 広げるときは図形だけを見て（置いたセルに重なってよい）、選ぶときは新しく埋まる数で比べる
-                const a = grow(rows, sx, y, z, 0, maxXZ);
-                const b = grow(rows, sx, y, z, 1, maxXZ);
-                const best = countFree(free, a) >= countFree(free, b) ? a : b;
-                boxes.push(best);
-                cutBox(free, best);
-            }
-        }
-        return boxes;
+        return shapeOfRows(rows);
     }
 
     /**
-     * 行の集まりをなるべく少ない直方体 [x0, x1, y0, y1, z0, z1] に分ける。
-     * 直方体は図形の外にはみ出さない（重なることはある）。
-     * @param maxXZ 直方体の x・z の長さの上限（読み込み窓に収めるため）
+     * 図形を軸方向の段で分ける。
+     * @returns count 個の行の集まり。段は thickness 段ごとに 0, 1, ... と順に割り当てる
      */
-    export function cover(rows: Rows, maxXZ: number): number[][] {
-        const scan: number[] = [];
-        for (let i = 0; i < rows.data.length; i++) {
-            if (rows.data[i].length > 0) scan.push(i);
+    export function layersOf(s: Shape, axis: Axis, thickness: number, count: number): Rows[] {
+        const src = s.rows();
+        const result: Rows[] = [];
+        for (let c = 0; c < count; c++) result.push(new Rows(src.y0, src.y0 + src.ny - 1, src.z0, src.z0 + src.nz - 1));
+        const t = Math.max(1, Math.floor(thickness));
+        const groupOf = (k: number) => Math.floor(k / t) % count;
+        for (let y = 0; y < src.ny; y++) {
+            for (let z = 0; z < src.nz; z++) {
+                const i = y * src.nz + z;
+                const row = src.data[i];
+                if (row.length == 0) continue;
+                if (axis == Axis.X) {
+                    for (let k = 0; k < row.length; k += 2) {
+                        let a = row[k];
+                        while (a <= row[k + 1]) {
+                            const g = groupOf(a - s.x0);
+                            const end = Math.min(row[k + 1], a + t - 1 - (a - s.x0) % t);
+                            let out: number[] = result[g].data[i];
+                            if (out === NO_ROW) out = [];
+                            pushSpan(out, a, end);
+                            result[g].data[i] = out;
+                            a = end + 1;
+                        }
+                    }
+                } else {
+                    result[groupOf(axis == Axis.Y ? y : z)].data[i] = row;
+                }
+            }
+            mmingCore.tick(src.nz);
         }
-        const first = coverInOrder(rows, scan, maxXZ);
-        if (scan.length > TRY_BOTH_ORDERS_ROWS) return first;
-        // 形によって当たり外れがあるので、短い行から順に処理する並べ方も試す
-        const lengthOf = (i: number) => {
-            const row = rows.data[i];
-            let n = 0;
-            for (let k = 0; k < row.length; k += 2) n += row[k + 1] - row[k] + 1;
-            return n;
-        };
-        const lengths: number[] = [];
-        for (let i = 0; i < rows.data.length; i++) lengths.push(lengthOf(i));
-        const shortFirst = scan.slice(0);
-        shortFirst.sort((a, b) => lengths[a] != lengths[b] ? lengths[a] - lengths[b] : a - b);
-        const second = coverInOrder(rows, shortFirst, maxXZ);
-        return second.length < first.length ? second : first;
+        return result;
     }
 
     // ==============================
-    // 点の集まり（線・曲線・らせん・座標リスト）
+    // 点の集まり（線・曲線・螺旋・座標リスト）
     // ==============================
 
-    /** 整数座標の点の集まり（重複は自動で除く） */
+    /** 整数座標の点の集まり（続けて同じ点は足さない） */
     export class Points {
         xs: number[];
         ys: number[];
         zs: number[];
-        private seen: { [key: string]: boolean };
 
         constructor() {
             this.xs = [];
             this.ys = [];
             this.zs = [];
-            this.seen = {};
         }
 
         add(x: number, y: number, z: number): void {
-            const key = `${x},${y},${z}`;
-            if (this.seen[key]) return;
-            this.seen[key] = true;
+            const n = this.xs.length;
+            if (n > 0 && this.xs[n - 1] == x && this.ys[n - 1] == y && this.zs[n - 1] == z) return;
             this.xs.push(x);
             this.ys.push(y);
             this.zs.push(z);
@@ -365,7 +345,10 @@ namespace mmingCore {
 
         toPositions(): Position[] {
             const result: Position[] = [];
-            for (let i = 0; i < this.xs.length; i++) result.push(world(this.xs[i], this.ys[i], this.zs[i]));
+            for (let i = 0; i < this.xs.length; i++) {
+                result.push(world(this.xs[i], this.ys[i], this.zs[i]));
+                mmingCore.tick(1);
+            }
             return result;
         }
     }
@@ -386,27 +369,41 @@ namespace mmingCore {
         }
     }
 
-    /** 点の番号 list から行の集まりを作る */
-    export function rowsOfPoints(points: Points, list: number[]): Rows {
-        let y0 = points.ys[list[0]], y1 = y0, z0 = points.zs[list[0]], z1 = z0;
-        for (const i of list) {
+    /** 昇順に x を差し込む（同じ値は入れない） */
+    function insertX(xs: number[], x: number): void {
+        let i = xs.length;
+        xs.push(x);
+        while (i > 0 && xs[i - 1] > x) {
+            xs[i] = xs[i - 1];
+            i--;
+        }
+        xs[i] = x;
+    }
+
+    /** 点の集まりから図形を作る（通る順も残す） */
+    export function shapeOfPoints(points: Points): Shape {
+        const n = points.count();
+        if (n == 0) return emptyShape();
+        let y0 = points.ys[0], y1 = y0, z0 = points.zs[0], z1 = z0;
+        for (let i = 1; i < n; i++) {
             y0 = Math.min(y0, points.ys[i]); y1 = Math.max(y1, points.ys[i]);
             z0 = Math.min(z0, points.zs[i]); z1 = Math.max(z1, points.zs[i]);
         }
+        mmingCore.tick(n);
         y0 = clampY(y0); y1 = clampY(y1);
         const rows = new Rows(y0, y1, z0, z1);
-        for (const i of list) {
+        for (let i = 0; i < n; i++) {
             const y = points.ys[i];
             if (y < y0 || y > y1) continue;
             const k = (y - y0) * rows.nz + (points.zs[i] - z0);
             if (rows.data[k] === NO_ROW) rows.data[k] = [];
-            rows.data[k].push(points.xs[i]);
+            insertX(rows.data[k], points.xs[i]);
+            mmingCore.tick(1);
         }
-        // x を昇順に並べて、続いているものを区間にまとめる
+        // x を続いているものごとに区間にまとめる
         for (let k = 0; k < rows.data.length; k++) {
             const xs = rows.data[k];
             if (xs.length == 0) continue;
-            xs.sort((a, b) => a - b);
             const row: number[] = [];
             let a = xs[0], b = xs[0];
             for (let i = 1; i < xs.length; i++) {
@@ -417,6 +414,45 @@ namespace mmingCore {
             rows.data[k] = row;
             mmingCore.tick(xs.length);
         }
-        return rows;
+        const s = shapeOfRows(rows);
+        s.path = points;
+        return s;
+    }
+
+    /** 図形の座標リスト。線や曲線は通る順に返す */
+    export function positionsOf(s: Shape): Position[] {
+        if (s.path) return s.path.toPositions();
+        const rows = s.rows();
+        const result: Position[] = [];
+        for (let i = 0; i < rows.data.length; i++) {
+            const row = rows.data[i];
+            const y = rows.y0 + Math.floor(i / rows.nz), z = rows.z0 + i % rows.nz;
+            for (let k = 0; k < row.length; k += 2) {
+                for (let x = row[k]; x <= row[k + 1]; x++) result.push(world(x, y, z));
+                mmingCore.tick(row[k + 1] - row[k] + 1);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 座標リストを点の集まりにする。
+     * 相対座標はプレイヤーの位置を 1 回だけ調べて足す（1 つずつゲームに問い合わせると遅い）
+     */
+    export function pointsOfPositions(positions: Position[]): Points {
+        const points = new Points();
+        let origin: Position = null;
+        for (const p of positions) {
+            if (!p) continue;
+            let x = p.getValue(Axis.X), y = p.getValue(Axis.Y), z = p.getValue(Axis.Z);
+            if (p.isRelative(Axis.X) || p.isRelative(Axis.Y) || p.isRelative(Axis.Z)) {
+                if (!origin) origin = pos(0, 0, 0).toWorld();
+                if (p.isRelative(Axis.X)) x += origin.getValue(Axis.X);
+                if (p.isRelative(Axis.Y)) y += origin.getValue(Axis.Y);
+                if (p.isRelative(Axis.Z)) z += origin.getValue(Axis.Z);
+            }
+            points.add(Math.floor(x), Math.floor(y), Math.floor(z));
+        }
+        return points;
     }
 }
