@@ -128,7 +128,7 @@ namespace mmingCore {
         const free = new mmingCore.Rows(rows.y0, rows.y0 + rows.ny - 1, rows.z0, rows.z0 + rows.nz - 1);
         for (let i = 0; i < rows.data.length; i++) {
             free.data[i] = rows.data[i];
-            mmingCore.tick(1);
+            if (i % mmingCore.BATCH == mmingCore.BATCH - 1) mmingCore.tick(mmingCore.BATCH);
         }
         const boxes: number[][] = [];
         for (let r = 0; r < rows.data.length; r++) {

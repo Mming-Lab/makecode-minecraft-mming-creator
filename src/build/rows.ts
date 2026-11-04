@@ -4,6 +4,8 @@ namespace mmingCore {
     const WORLD_MIN_Y = -64;
     const WORLD_MAX_Y = 319;
     const NO_ROW: number[] = [];
+    /** 行を順に見るだけのループで、計算量をまとめて数える間隔 */
+    export const BATCH = 256;
 
     function clampY(y: number): number {
         return Math.max(WORLD_MIN_Y, Math.min(WORLD_MAX_Y, y));
@@ -20,7 +22,7 @@ namespace mmingCore {
             this.data = [];
             for (let i = 0; i < this.ny * this.nz; i++) {
                 this.data.push(NO_ROW);
-                mmingCore.tick(1);
+                if (i % BATCH == BATCH - 1) mmingCore.tick(BATCH);
             }
         }
 
@@ -33,9 +35,10 @@ namespace mmingCore {
         /** セルの数 */
         count(): number {
             let n = 0;
-            for (const row of this.data) {
+            for (let r = 0; r < this.data.length; r++) {
+                const row = this.data[r];
                 for (let i = 0; i < row.length; i += 2) n += row[i + 1] - row[i] + 1;
-                mmingCore.tick(1);
+                if (r % BATCH == BATCH - 1) mmingCore.tick(BATCH);
             }
             return n;
         }
@@ -98,8 +101,9 @@ namespace mmingCore {
     /** 行の集まりから図形を作る */
     export function shapeOfRows(rows: Rows): Shape {
         let x0 = 0, x1 = -1, found = false;
-        for (const row of rows.data) {
-            mmingCore.tick(1);
+        for (let r = 0; r < rows.data.length; r++) {
+            if (r % BATCH == BATCH - 1) mmingCore.tick(BATCH);
+            const row = rows.data[r];
             if (row.length == 0) continue;
             const a = row[0], b = row[row.length - 1];
             if (!found) { x0 = a; x1 = b; found = true; }
@@ -234,7 +238,7 @@ namespace mmingCore {
         const rows = new Rows(src.y0 + dy, src.y0 + src.ny - 1 + dy, src.z0 + dz, src.z0 + src.nz - 1 + dz);
         for (let i = 0; i < src.data.length; i++) {
             const row = src.data[i];
-            mmingCore.tick(1);
+            if (i % BATCH == BATCH - 1) mmingCore.tick(BATCH);
             if (row.length == 0) continue;
             const moved: number[] = [];
             for (let k = 0; k < row.length; k++) moved.push(row[k] + dx);

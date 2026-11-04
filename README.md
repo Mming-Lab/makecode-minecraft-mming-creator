@@ -63,6 +63,7 @@ A list holds one item for every cell, so keep lists to small shapes. Placing a s
 
 - **Clear inside**: the option on **place** turns the inside into air, and uses fewer `/fill` commands than placing the **outside of** a shape over existing blocks.
 - **Large shapes take time**: a sphere of radius 100 needs about 7,000 `/fill` commands. The progress is shown in your chat, and only you can see it. **show building progress** turns off the percentages, but some messages remain because MakeCode stops on long calculations without them.
+- **Pauses**: the log can stop for several seconds to about 40 seconds and then continue. Please wait before running the program again.
 - **Far away**: only the area around the player can be changed, so the extension loads the area with `/tickingarea` while building. It uses one area named `mmingCreator...` and removes it when done. Each world can have up to 10 areas.
 - **If a program stops in the middle**, the player may be left unable to move. Run these in the chat, or use the **reset everything** block:
 
