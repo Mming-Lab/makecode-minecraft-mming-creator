@@ -1,23 +1,23 @@
 // 拡張機能全体で使う部品（ブロックにはならない）
 namespace mmingCore {
     /**
-     * この回数の計算ごとにコマンドを 1 回送る。
-     * MakeCode は計算だけを続けると止まってしまうので、ゲームとの往復をはさむ。
-     * 実機ではコマンドなしのループが 10,000 回は通り、100,000 回で止まった。
-     * tick の 1 回は実際のループの数回ぶんなので、ループが 5,000 回ほどで送られる値にする
+     * この回数の計算ごとに、自分だけに見えるメッセージを出す。
+     * MakeCode は計算だけを続けると止まってしまう。実機では 300 回ごとに発言すると通り、
+     * 発言なしで execute や loops.pause をはさんでも止まった（理由は分かっていない）。
+     * player.say は全員に見えるので player.tell を使う
      */
-    const YIELD_EVERY = 2000;
+    const YIELD_EVERY = 300;
 
     let ticks = 0;
     let showProgress = true;
     let lastPercent = -1;
 
-    /** 計算量を数え、一定回数ごとにコマンドを送って処理を続けられるようにする */
+    /** 計算量を数え、一定回数ごとにメッセージを出して処理を続けられるようにする */
     export function tick(n: number): void {
         ticks += n;
         if (ticks >= YIELD_EVERY) {
             ticks = 0;
-            player.execute("testfor @s");
+            player.tell(mobs.target(TargetSelectorKind.LocalPlayer), "...");
         }
     }
 
